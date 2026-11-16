@@ -2,159 +2,294 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fitness Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090D12" />
+  <title>Orbit Fitness</title>
+  <link rel="icon" href="orbit-logo.jpeg" />
+  <link rel="apple-touch-icon" href="orbit-logo.jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <style>
-    :root { --bg:#f6f7f9; --fg:#1a1a1a; --muted:#666; --card:#fff; --line:#dcdfe4; --accent:#2563eb; --bad:#b00020; --ok:#15803d; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg:#121417; --fg:#ececec; --muted:#a0a4ab; --card:#1c1f24; --line:#2e333a; --accent:#60a5fa; --bad:#f87171; --ok:#4ade80; }
+    /* ORBIT DESIGN SYSTEM v1.0 - dark theme only for now.
+       To add the light theme later, add a [data-theme="light"] block that re-sets these colours. */
+    :root {
+      --font-primary: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --color-background: #090D12;
+      --color-surface: #151E28;
+      --color-elevated: #253342;
+      --color-text-primary: #F3F6F8;
+      --color-text-secondary: #BFC9D4;
+      --color-text-muted: #8295A6;
+      --color-accent: #36C9DF;
+      --color-success: #35C48D;
+      --color-warning: #E5A94B;
+      --color-error: #E46D75;
+      --tint-success: rgba(53, 196, 141, 0.12);
+      --tint-warning: rgba(229, 169, 75, 0.12);
+      --tint-error: rgba(228, 109, 117, 0.12);
+      --line-success: rgba(53, 196, 141, 0.4);
+      --line-warning: rgba(229, 169, 75, 0.4);
+      --line-error: rgba(228, 109, 117, 0.45);
+      --radius-card: 16px;
+      --radius-button: 12px;
+      --radius-input: 12px;
+      --spacing-unit: 8px;
+      --nav-height: 72px;
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; line-height:1.4; }
-    main { max-width:720px; margin:0 auto; padding:12px 16px 48px; }
-    header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-    h1 { font-size:1.25rem; margin:8px 0; }
-    h2 { font-size:1.05rem; margin:20px 0 8px; }
-    .hidden { display:none !important; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin:10px 0; }
-    label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 3px; }
-    input, select, textarea, button { font:inherit; padding:.55rem; width:100%; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
-    textarea { min-height:70px; resize:vertical; }
-    input[type=checkbox] { width:auto; margin-right:6px; }
-    .check { display:flex; align-items:center; color:var(--fg); font-size:1rem; margin:12px 0; }
-    button { cursor:pointer; background:var(--accent); color:#fff; border:0; margin-top:12px; font-weight:600; }
-    button.secondary { background:transparent; color:var(--accent); border:1px solid var(--accent); }
-    button.small { width:auto; padding:.35rem .7rem; margin:0; font-weight:500; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    nav { display:flex; gap:6px; margin:10px 0; }
-    nav button { margin:0; background:transparent; color:var(--fg); border:1px solid var(--line); font-weight:500; padding:.5rem .3rem; }
-    nav button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-    nav button:disabled { opacity:.4; cursor:not-allowed; }
-    .msg { min-height:1.2em; font-size:.9rem; color:var(--muted); margin:8px 0 0; }
-    .msg.err { color:var(--bad); } .msg.ok { color:var(--ok); }
-    .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
-    .tile { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-    .tile .v { font-size:1.35rem; font-weight:700; } .tile .l { font-size:.78rem; color:var(--muted); } .tile .s { font-size:.78rem; color:var(--muted); }
-    .nav2 { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .nav2 strong { text-align:center; flex:1; }
-    table { width:100%; border-collapse:collapse; font-size:.88rem; }
-    th, td { text-align:right; padding:6px 4px; border-bottom:1px solid var(--line); } th:first-child, td:first-child { text-align:left; }
-    th { color:var(--muted); font-weight:500; }
-    .overlays { display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0; } .overlays label { display:flex; align-items:center; margin:0; color:var(--fg); font-size:.9rem; }
-    .chartbox { position:relative; height:320px; }
-    .hint { font-size:.8rem; color:var(--muted); }
-    .dayname { text-align:center; font-weight:600; margin:8px 0 0; }
+    body { margin: 0; background: var(--color-background); color: var(--color-text-primary); font-family: var(--font-primary);
+      font-size: 16px; line-height: 1.4; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--nav-height) + 32px + env(safe-area-inset-bottom)); }
+    .hidden { display: none !important; }
+
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; margin-bottom: 16px; }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand img { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0; }
+    #who-box { display: flex; align-items: center; gap: 12px; }
+    #who { font-size: 14px; color: var(--color-text-secondary); }
+
+    /* Cards and text */
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--color-surface); border: 1px solid var(--color-elevated); border-radius: var(--radius-card);
+      padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    h2 { font-size: 16px; font-weight: 600; margin: 0; }
+    .hint { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+    .msg { min-height: 1.2em; font-size: 14px; color: var(--color-text-muted); margin: 0; }
+    .msg:empty { display: none; }
+    .msg.err { color: var(--color-error); } .msg.ok { color: var(--color-success); }
+
+    /* Forms */
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 500; color: var(--color-text-muted); min-width: 0; }
+    input, select, textarea { font: inherit; font-size: 16px; font-weight: 400; width: 100%; padding: 12px; border: 1px solid transparent;
+      border-radius: var(--radius-input); background: var(--color-elevated); color: var(--color-text-primary); }
+    textarea { min-height: 80px; resize: vertical; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    input::placeholder, textarea::placeholder { color: var(--color-text-muted); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 16px; color: var(--color-text-primary); }
+    .check input { width: 22px; height: 22px; margin: 0; padding: 0; accent-color: var(--color-accent); }
+
+    /* Buttons: primary = cyan with dark text, secondary = transparent with a subtle border */
+    button { font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; min-height: 48px; padding: 12px;
+      border: 0; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-background); }
+    button.secondary { background: transparent; color: var(--color-accent); border: 1px solid var(--color-accent); }
+    button.quiet { width: auto; min-height: 40px; padding: 8px 16px; font-size: 14px; background: transparent;
+      color: var(--color-text-secondary); border: 1px solid var(--color-elevated); }
+    button.icon { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;
+      background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-elevated); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Day / week switcher */
+    .nav2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .nav2 strong { flex: 1; text-align: center; font-size: 14px; font-weight: 600; }
+    .nav2 .mid { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+    .nav2 input[type=date] { max-width: 180px; text-align: center; font-weight: 600; }
+    .dayname { font-size: 12px; font-weight: 500; color: var(--color-text-muted); margin: 0; }
+
+    /* Numbers */
+    .label { font-size: 12px; font-weight: 500; color: var(--color-text-muted); }
+    .sub { font-size: 12px; color: var(--color-text-muted); }
+    .metric { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .metric .v { font-size: 20px; font-weight: 700; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .metrics .wide { grid-column: 1 / -1; }
+    .roc { display: flex; flex-direction: column; gap: 2px; }
+    .roc .big { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+    .roc .big .v { font-size: 36px; font-weight: 700; line-height: 44px; }
+    .roc .big .u, .roc .kg { font-size: 14px; color: var(--color-text-secondary); }
+    .roc.small .big .v { font-size: 32px; line-height: 40px; }
+    .status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .chip-status { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 4px 8px; background: var(--color-elevated); color: var(--color-text-secondary); }
+    .split { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-top: 1px solid var(--color-elevated); padding-top: 12px; }
+    .split .v { font-size: 18px; font-weight: 600; }
+    .split .right { text-align: right; }
+    .divide { border-top: 1px solid var(--color-elevated); padding-top: 16px; }
+
+    /* Status colours. Every coloured value also carries a word, so colour is never the only signal. */
+    .t-good { color: var(--color-success); } .t-warn { color: var(--color-warning); } .t-bad { color: var(--color-error); }
+    .chip-status.t-good { background: var(--tint-success); } .chip-status.t-warn { background: var(--tint-warning); } .chip-status.t-bad { background: var(--tint-error); }
+    .box { border: 1px solid var(--color-elevated); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+    .box .n { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
+    .box .v { font-size: 24px; font-weight: 700; }
+    .box .s { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+    .box.b-good { background: var(--tint-success); border-color: var(--line-success); } .box.b-good .s { color: var(--color-success); }
+    .box.b-warn { background: var(--tint-warning); border-color: var(--line-warning); } .box.b-warn .s { color: var(--color-warning); }
+    .box.b-bad { background: var(--tint-error); border-color: var(--line-error); } .box.b-bad .s { color: var(--color-error); }
+
+    /* Lists of label + value (Monday summary, suggested targets) */
+    .lines { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+    .line { display: flex; justify-content: space-between; gap: 12px; }
+    .line .k { color: var(--color-text-secondary); }
+    .line .val { font-weight: 600; text-align: right; }
+    .cardhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .phrase { border-top: 1px solid var(--color-elevated); padding-top: 12px; font-size: 14px; margin: 0; }
+
+    /* Table */
+    .tablewrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; color: var(--color-text-secondary); }
+    th, td { text-align: right; padding: 8px 2px; border-bottom: 1px solid var(--color-elevated); white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    th:first-child, td:first-child { text-align: left; }
+    th:last-child, td:last-child { text-align: center; }
+    th { color: var(--color-text-muted); font-weight: 500; }
+    td svg { vertical-align: middle; }
+
+    /* Chart */
+    .charthead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .charthead .field { flex-direction: row; align-items: center; gap: 8px; }
+    .charthead select { width: auto; min-height: 40px; padding: 8px 12px; font-size: 14px; }
+    .overlays { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { position: relative; }
+    .chip input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+    .chip span { display: inline-flex; align-items: center; min-height: 36px; padding: 8px 12px; font-size: 12px; font-weight: 600;
+      border-radius: var(--radius-button); border: 1px solid var(--color-elevated); color: var(--color-text-secondary); }
+    .chip input:checked + span { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-background); }
+    .chip input:focus-visible + span { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    .chartbox { position: relative; height: 300px; }
+
+    /* Bottom navigation: always visible, icons only (names are kept for screen readers and on long-press) */
+    nav#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--color-surface); border-top: 1px solid var(--color-elevated);
+      padding-bottom: env(safe-area-inset-bottom); }
+    nav#tabs .inner { max-width: 720px; margin: 0 auto; height: var(--nav-height); display: grid; grid-template-columns: repeat(4, 1fr); }
+    nav#tabs button { background: transparent; border: 0; border-radius: 0; height: var(--nav-height); min-height: 0; padding: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--color-text-muted); }
+    nav#tabs button .bar { width: 16px; height: 3px; border-radius: 2px; background: transparent; }
+    nav#tabs button.active { color: var(--color-accent); }
+    nav#tabs button.active .bar { background: var(--color-accent); }
+
+    .login-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 32px 0 8px; }
+    .login-brand img { width: 96px; height: 96px; border-radius: 24px; object-fit: cover; }
+    .login-brand span { font-size: 24px; font-weight: 600; }
+    .version { font-size: 12px; font-weight: 500; color: var(--color-text-muted); text-align: center; margin: 16px 0 0; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      button, .chip span, .box { transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+    }
   </style>
 </head>
 <body>
 <main>
-  <header>
-    <h1>Fitness Tracker</h1>
-    <div id="who-box" class="hidden"><span id="who"></span> <button id="logoutBtn" class="small secondary">Log out</button></div>
+  <header id="topbar" class="hidden">
+    <div class="brand"><img src="orbit-logo.jpeg" alt="Orbit logo" /><h1>Orbit</h1></div>
+    <div id="who-box"><span id="who"></span><button id="logoutBtn" class="quiet">Log out</button></div>
   </header>
 
   <!-- LOGIN (no sign-up: accounts are created by the admin in Supabase) -->
-  <section id="login" class="card hidden">
-    <label for="username">Username</label>
-    <input id="username" autocomplete="username" autocapitalize="none" />
-    <label for="password">Password</label>
-    <input id="password" type="password" autocomplete="current-password" />
-    <button id="loginBtn">Log in</button>
-    <p id="loginMsg" class="msg"></p>
+  <section id="login" class="hidden">
+    <div class="login-brand"><img src="orbit-logo.jpeg" alt="Orbit logo" /><span>Orbit</span></div>
+    <div class="card" style="margin-top:24px">
+      <label class="field" for="username">Username
+        <input id="username" autocomplete="username" autocapitalize="none" /></label>
+      <label class="field" for="password">Password
+        <input id="password" type="password" autocomplete="current-password" /></label>
+      <button id="loginBtn">Log in</button>
+      <p id="loginMsg" class="msg"></p>
+    </div>
   </section>
 
   <!-- APP -->
   <section id="app" class="hidden">
-    <nav id="tabs">
-      <button data-tab="today">Today</button>
-      <button data-tab="week">Week</button>
-      <button data-tab="dashboard">Dashboard</button>
-      <button data-tab="profile">Profile</button>
-    </nav>
 
     <!-- TODAY -->
-    <div id="tab-today" class="hidden">
+    <div id="tab-today" class="stack hidden">
       <div class="card">
         <div class="nav2">
-          <button id="dayPrev" class="small secondary">&larr;</button>
-          <input id="logDate" type="date" style="max-width:190px" />
-          <button id="dayNext" class="small secondary">&rarr;</button>
+          <button id="dayPrev" class="icon" aria-label="Previous day" title="Previous day">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="mid">
+            <input id="logDate" type="date" aria-label="Date" />
+            <p id="dayName" class="dayname"></p>
+          </div>
+          <button id="dayNext" class="icon" aria-label="Next day" title="Next day">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
-        <p id="dayName" class="dayname"></p>
         <div class="row">
-          <div><label for="f-weight">Weight (kg)</label><input id="f-weight" type="number" step="0.01" inputmode="decimal" /></div>
-          <div><label for="f-steps">Steps</label><input id="f-steps" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
+          <label class="field" for="f-weight">Weight (kg)<input id="f-weight" type="number" step="0.01" inputmode="decimal" /></label>
+          <label class="field" for="f-steps">Steps<input id="f-steps" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
         </div>
         <div class="row">
-          <div><label for="f-calories">Calories</label><input id="f-calories" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
-          <div><label for="f-protein">Protein (g)</label><input id="f-protein" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
+          <label class="field" for="f-calories">Calories<input id="f-calories" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <label class="field" for="f-protein">Protein (g)<input id="f-protein" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
         </div>
         <label class="check"><input id="f-workout" type="checkbox" /> I worked out today</label>
-        <label for="f-activities">Other activities (walk, swim, sports...)</label>
-        <input id="f-activities" maxlength="500" />
+        <label class="field" for="f-activities">Other activities (walk, swim, sports...)
+          <input id="f-activities" maxlength="500" placeholder="Optional" /></label>
         <div class="row">
-          <div><label for="f-sleep">Sleep <span class="hint">(5 = great)</span></label><select id="f-sleep"></select></div>
-          <div><label for="f-stress">Stress <span class="hint">(5 = high)</span></label><select id="f-stress"></select></div>
+          <label class="field" for="f-sleep">Sleep (5 = great)<select id="f-sleep"></select></label>
+          <label class="field" for="f-stress">Stress (5 = high)<select id="f-stress"></select></label>
         </div>
         <div class="row">
-          <div><label for="f-fatigue">Fatigue <span class="hint">(5 = high)</span></label><select id="f-fatigue"></select></div>
-          <div><label for="f-hunger">Hunger <span class="hint">(5 = high)</span></label><select id="f-hunger"></select></div>
+          <label class="field" for="f-fatigue">Fatigue (5 = high)<select id="f-fatigue"></select></label>
+          <label class="field" for="f-hunger">Hunger (5 = high)<select id="f-hunger"></select></label>
         </div>
-        <label for="f-wins">Today's wins</label>
-        <textarea id="f-wins" maxlength="1000"></textarea>
-        <label for="f-tomorrow">What I plan to do tomorrow</label>
-        <textarea id="f-tomorrow" maxlength="1000"></textarea>
+        <label class="field" for="f-wins">Today's wins
+          <textarea id="f-wins" maxlength="1000" placeholder="What went well today"></textarea></label>
+        <label class="field" for="f-tomorrow">What I plan to do tomorrow
+          <textarea id="f-tomorrow" maxlength="1000" placeholder="One or two things"></textarea></label>
         <button id="saveDay">Save day</button>
         <p id="todayMsg" class="msg"></p>
       </div>
     </div>
 
     <!-- WEEK -->
-    <div id="tab-week" class="hidden">
+    <div id="tab-week" class="stack hidden">
       <div class="card">
         <div class="nav2">
-          <button id="weekPrev" class="small secondary">&larr;</button>
+          <button id="weekPrev" class="icon" aria-label="Previous week" title="Previous week">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
           <strong id="weekLabel"></strong>
-          <button id="weekNext" class="small secondary">&rarr;</button>
+          <button id="weekNext" class="icon" aria-label="Next week" title="Next week">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
         <h2>Targets for this week</h2>
         <div class="row">
-          <div><label for="t-calories">Daily calories</label><input id="t-calories" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
-          <div><label for="t-protein">Daily protein (g)</label><input id="t-protein" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
+          <label class="field" for="t-calories">Daily calories<input id="t-calories" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <label class="field" for="t-protein">Daily protein (g)<input id="t-protein" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
         </div>
         <div class="row">
-          <div><label for="t-steps">Daily steps</label><input id="t-steps" class="int" type="text" inputmode="numeric" autocomplete="off" /></div>
-          <div><label for="t-workouts">Workouts this week</label><input id="t-workouts" type="number" step="1" min="0" max="14" inputmode="numeric" /></div>
+          <label class="field" for="t-steps">Daily steps<input id="t-steps" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
+          <label class="field" for="t-workouts">Workouts this week<input id="t-workouts" type="number" step="1" min="0" max="14" inputmode="numeric" /></label>
         </div>
-        <div class="row">
-          <button id="suggestBtn" class="secondary">Suggest from my profile</button>
-          <button id="saveTargets">Save targets</button>
-        </div>
+        <button id="saveTargets">Save targets</button>
         <p id="targetMsg" class="msg"></p>
       </div>
-      <div class="card">
-        <h2 style="margin-top:0">This week so far</h2>
-        <div id="weekTiles" class="tiles"></div>
-        <table style="margin-top:12px">
-          <thead><tr><th>Day</th><th>kg</th><th>kcal</th><th>Protein</th><th>Steps</th><th>Gym</th></tr></thead>
-          <tbody id="weekRows"></tbody>
-        </table>
+      <div class="card" style="gap:16px">
+        <h2>Week stats</h2>
+        <div id="weekRoc"></div>
+        <div id="weekTiles" class="metrics divide"></div>
+        <div>
+          <span class="label">Weekly averages (1 to 5)</span>
+          <div id="weekBoxes" class="row" style="margin-top:8px"></div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Day</th><th>kg</th><th>kcal</th><th>Protein</th><th>Steps</th><th>Workout</th></tr></thead>
+            <tbody id="weekRows"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- DASHBOARD -->
-    <div id="tab-dashboard" class="hidden">
-      <div id="dashTiles" class="tiles"></div>
-      <div class="card">
-        <div class="row">
-          <div><label for="range">Range</label>
-            <select id="range"><option value="28">Last 4 weeks</option><option value="56" selected>Last 8 weeks</option><option value="112">Last 16 weeks</option><option value="0">All time</option></select></div>
+    <div id="tab-dashboard" class="stack hidden">
+      <div id="summaryCard" class="card hidden"></div>
+      <div id="dashRoc" class="card" style="gap:4px"></div>
+      <div id="dashTiles" class="card metrics"></div>
+      <div id="chartCard" class="card">
+        <div class="charthead">
+          <h2>Weight trend</h2>
+          <label class="field" for="range">Range
+            <select id="range"><option value="28">Last 4 weeks</option><option value="56" selected>Last 8 weeks</option><option value="112">Last 16 weeks</option><option value="0">All time</option></select></label>
         </div>
         <div class="overlays">
-          <label><input type="checkbox" id="ov-calories" /> Calories</label>
-          <label><input type="checkbox" id="ov-protein" /> Protein</label>
-          <label><input type="checkbox" id="ov-steps" /> Steps</label>
-          <label><input type="checkbox" id="ov-workouts" /> Workouts</label>
+          <label class="chip"><input type="checkbox" id="ov-calories" /><span>Calories</span></label>
+          <label class="chip"><input type="checkbox" id="ov-protein" /><span>Protein</span></label>
+          <label class="chip"><input type="checkbox" id="ov-steps" /><span>Steps</span></label>
+          <label class="chip"><input type="checkbox" id="ov-workouts" /><span>Workouts</span></label>
         </div>
         <div class="chartbox"><canvas id="chart"></canvas></div>
         <p id="dashMsg" class="msg"></p>
@@ -162,27 +297,60 @@
     </div>
 
     <!-- PROFILE -->
-    <div id="tab-profile" class="hidden">
+    <div id="tab-profile" class="stack hidden">
       <div class="card">
+        <h2>Profile</h2>
         <p id="profileIntro" class="hint hidden">Welcome! Fill this in once. We only store your first name and the numbers needed for your target calculations.</p>
-        <label for="p-name">First name</label><input id="p-name" maxlength="40" />
+        <label class="field" for="p-name">First name<input id="p-name" maxlength="40" /></label>
         <div class="row">
-          <div><label for="p-sex">Sex</label><select id="p-sex"><option value="">Select</option><option value="male">Male</option><option value="female">Female</option></select></div>
-          <div><label for="p-age">Age</label><input id="p-age" type="number" inputmode="numeric" /></div>
+          <label class="field" for="p-sex">Sex<select id="p-sex"><option value="">Select</option><option value="male">Male</option><option value="female">Female</option></select></label>
+          <label class="field" for="p-age">Age<input id="p-age" type="number" inputmode="numeric" /></label>
         </div>
         <div class="row">
-          <div><label for="p-height">Height (cm)</label><input id="p-height" type="number" step="0.1" inputmode="decimal" /></div>
-          <div><label for="p-goal">Goal</label><select id="p-goal"><option value="cut">Cut</option><option value="maintain">Maintain</option><option value="bulk">Bulk</option></select></div>
+          <label class="field" for="p-height">Height (cm)<input id="p-height" type="number" step="0.1" inputmode="decimal" /></label>
+          <label class="field" for="p-start">Starting weight (kg)<input id="p-start" type="number" step="0.1" inputmode="decimal" /></label>
         </div>
-        <label for="p-window">Trend smoothing (days)</label>
-        <input id="p-window" type="number" min="5" max="30" value="10" />
+        <div class="row">
+          <label class="field" for="p-goal">Goal<select id="p-goal"><option value="cut">Cut</option><option value="maintain">Maintain</option><option value="bulk">Bulk</option></select></label>
+          <label class="field" for="p-lifting">Lifting sessions per week<select id="p-lifting"></select></label>
+        </div>
+        <label class="field" for="p-activity">Activity level (daily steps)<select id="p-activity"></select></label>
+        <label class="field" for="p-window">Trend smoothing (days)<input id="p-window" type="number" min="5" max="30" value="10" /></label>
         <p class="hint">Higher = smoother trend line. 10 is a good default.</p>
         <button id="saveProfile">Save profile</button>
         <p id="profileMsg" class="msg"></p>
       </div>
+      <div id="suggestCard" class="card hidden">
+        <div>
+          <h2>Suggested targets</h2>
+          <p class="hint" style="margin-top:2px">Based on your profile and starting weight. Updates each time you save.</p>
+        </div>
+        <div id="suggestLines" class="lines"></div>
+        <button id="useSuggested" class="secondary">Use these as my targets</button>
+        <p id="suggestMsg" class="msg"></p>
+      </div>
     </div>
+
+    <p id="version" class="version"></p>
   </section>
 </main>
+
+<nav id="tabs" class="hidden" aria-label="Main">
+  <div class="inner">
+    <button data-tab="today" aria-label="Today" title="Today">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6"/></svg>
+      <span class="bar"></span></button>
+    <button data-tab="week" aria-label="Week" title="Week">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <span class="bar"></span></button>
+    <button data-tab="dashboard" aria-label="Dashboard" title="Dashboard">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+      <span class="bar"></span></button>
+    <button data-tab="profile" aria-label="Profile" title="Profile">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      <span class="bar"></span></button>
+  </div>
+</nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>

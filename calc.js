@@ -172,7 +172,145 @@
     };
   }
 
+  // ---------- Goal rules (agreed 16 Nov 2026) ----------
+  // Levels used everywhere: 'good' (green), 'warn' (amber), 'bad' (red), 'none' (no colour).
+  function round2(x) { return Math.round(x * 100) / 100; }
+
+  function rocRange(goal) {
+    if (goal === 'bulk') return 'Bulk range +0.2% to +0.59%';
+    if (goal === 'cut') return 'Cut range -1% to -2%';
+    return 'Maintenance range -0.2% to +0.2%';
+  }
+
+  // pct = rate of change in percent of body weight per week, e.g. 0.35 means +0.35%.
+  function rocStatus(goal, pct) {
+    const range = rocRange(goal);
+    if (pct == null || !Number.isFinite(pct)) return { level: 'none', label: 'Not enough data', range: range };
+    const p = round2(pct); // judge the same number that is shown on screen
+    let level, label;
+    if (goal === 'bulk') {
+      if (p < 0) { level = 'bad'; label = 'Losing weight'; }
+      else if (p < 0.2) { level = 'warn'; label = 'Too slow'; }
+      else if (p <= 0.59) { level = 'good'; label = 'On track'; }
+      else { level = 'warn'; label = 'Gaining fast'; }
+    } else if (goal === 'cut') {
+      if (p > 0) { level = 'bad'; label = 'Gaining weight'; }
+      else if (p > -1) { level = 'warn'; label = 'Too slow'; }
+      else if (p >= -2) { level = 'good'; label = 'On track'; }
+      else { level = 'bad'; label = 'Losing too fast'; }
+    } else {
+      const a = Math.abs(p);
+      if (a <= 0.2) { level = 'good'; label = 'Holding steady'; }
+      else if (a <= 0.5) { level = 'warn'; label = 'Drifting'; }
+      else { level = 'bad'; label = 'Off track'; }
+    }
+    return { level: level, label: label, range: range };
+  }
+
+  // The rate of change for a week = the latest reading inside that week (Monday to Sunday).
+  function weekRoc(series, week) {
+    const end = addDays(week, 6);
+    let found = null;
+    series.forEach(function (p) {
+      if (p.date >= week && p.date <= end && p.weeklyChangePct != null) found = p;
+    });
+    return found;
+  }
+
+  // Daily targets (protein, and calories on a bulk): count the days that reached the target.
+  // A day counts as missed once it has passed, or once it is logged below target.
+  // 7 of 7 still possible = green, 5 or 6 = amber, 4 or fewer = red.
+  function dailyRule(days, field, target, today) {
+    if (!target) return { hits: 0, logged: 0, level: 'none' };
+    let hits = 0, misses = 0, logged = 0;
+    days.forEach(function (d) {
+      const v = d.log && d.log[field] != null ? Number(d.log[field]) : null;
+      if (v != null) logged++;
+      if (v != null && v >= target) hits++;
+      else if (d.date < today || v != null) misses++;
+    });
+    const best = 7 - misses;
+    const level = logged === 0 ? 'none' : best === 7 ? 'good' : best >= 5 ? 'warn' : 'bad';
+    return { hits: hits, logged: logged, level: level };
+  }
+
+  // Weekly-average targets. mode: 'min' = at or above target, 'max' = at or below,
+  // 'near' = within 5% either way. While the week is still running it says on/off pace.
+  function averageRule(avg, target, mode, complete) {
+    if (avg == null || !target) return { level: 'none', label: '' };
+    let ok;
+    if (mode === 'min') ok = avg >= target;
+    else if (mode === 'max') ok = avg <= target;
+    else ok = Math.abs(avg - target) <= target * 0.05;
+    return {
+      level: ok ? 'good' : (complete ? 'bad' : 'warn'),
+      label: complete ? (ok ? 'Hit' : 'Missed') : (ok ? 'On pace' : 'Off pace')
+    };
+  }
+
+  // sum = result of summarizeWeek, t = that week's targets (or null), today = "YYYY-MM-DD".
+  function evaluateWeek(sum, t, goal, today) {
+    const complete = sum.days[6].date < today;
+    const out = { complete: complete };
+    t = t || {};
+    if (goal === 'bulk') {
+      out.calories = dailyRule(sum.days, 'calories', t.calories, today);
+      out.calories.mode = 'daily';
+    } else {
+      out.calories = averageRule(sum.avgCalories, t.calories, goal === 'cut' ? 'max' : 'near', complete);
+      out.calories.mode = 'average';
+    }
+    out.protein = dailyRule(sum.days, 'protein_g', t.protein_g, today);
+    out.steps = averageRule(sum.avgSteps, t.steps, 'min', complete);
+    if (t.workouts == null) out.workouts = { level: 'none', label: '' };
+    else if (sum.workouts >= t.workouts) out.workouts = { level: 'good', label: 'Hit' };
+    else if (complete) out.workouts = { level: 'bad', label: 'Missed' };
+    else out.workouts = { level: 'none', label: (t.workouts - sum.workouts) + ' to go' };
+    return out;
+  }
+
+  // Sleep is a 1-5 quality rating where 5 is best. Stress, fatigue and hunger: 5 is worst.
+  function wellbeingLevel(kind, avg) {
+    if (avg == null) return { level: 'none', label: 'No data' };
+    if (kind === 'sleep') {
+      if (avg >= 4) return { level: 'good', label: 'Good' };
+      if (avg >= 2.5) return { level: 'warn', label: 'Watch' };
+      return { level: 'bad', label: 'Poor' };
+    }
+    if (avg <= 2) return { level: 'good', label: 'Good' };
+    if (avg <= 3.5) return { level: 'warn', label: 'Watch' };
+    return { level: 'bad', label: 'High' };
+  }
+
+  // Which kind of week was it? Used to pick the Monday encouragement phrase.
+  function weekKind(levels) {
+    const judged = levels.filter(function (l) { return l !== 'none'; });
+    if (!judged.length) return null;
+    // green = 1 point, amber = half a point, red = 0. All green is a strong week;
+    // an average under 0.4 is a tough week; anything else is mixed.
+    const score = judged.reduce(function (s, l) { return s + (l === 'good' ? 1 : l === 'warn' ? 0.5 : 0); }, 0) / judged.length;
+    if (score === 1) return 'strong';
+    if (score < 0.4) return 'tough';
+    return 'mixed';
+  }
+
+  // Activity levels for the Profile tab. "steps" is the daily step target suggested for that level.
+  const ACTIVITY_LEVELS = [
+    { key: 'under_5000', label: 'Under 5,000', steps: 4000 },
+    { key: '5000_7499', label: '5,000 to 7,499', steps: 6000 },
+    { key: '7500_9999', label: '7,500 to 9,999', steps: 9000 },
+    { key: '10000_14999', label: '10,000 to 14,999', steps: 12000 },
+    { key: '15000_plus', label: '15,000 or more', steps: 15000 }
+  ];
+  function activitySteps(key) {
+    const a = ACTIVITY_LEVELS.filter(function (x) { return x.key === key; })[0];
+    return a ? a.steps : null;
+  }
+
   const api = {
+    rocStatus: rocStatus, rocRange: rocRange, weekRoc: weekRoc, dailyRule: dailyRule, averageRule: averageRule,
+    evaluateWeek: evaluateWeek, wellbeingLevel: wellbeingLevel, weekKind: weekKind,
+    ACTIVITY_LEVELS: ACTIVITY_LEVELS, activitySteps: activitySteps,
     KCAL_PER_KG_PER_DAY: KCAL_PER_KG_PER_DAY,
     toDateStr: toDateStr, parseDate: parseDate, addDays: addDays, weekStart: weekStart, daysBetween: daysBetween,
     alphaFor: alphaFor, buildSeries: buildSeries,

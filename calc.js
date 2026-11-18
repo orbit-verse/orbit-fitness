@@ -57,6 +57,7 @@
         protein: row.protein_g != null ? Number(row.protein_g) : null,
         steps: row.steps != null ? Number(row.steps) : null,
         did_workout: row.date ? !!row.did_workout : null,
+        menstruating: !!row.menstruating,
         calEma: calEma, weeklyChange: null, weeklyChangePct: null, tdee: null
       };
       out.push(p);

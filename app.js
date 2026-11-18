@@ -2,7 +2,7 @@
 'use strict';
 
 // Shown at the bottom of the app so you can tell which version is live.
-const APP_VERSION = 'v2026-11-16a';
+const APP_VERSION = 'v2026-11-18a';
 
 // ====== SETTINGS: paste your values from Supabase > Project Settings > API ======
 const SUPABASE_URL = 'https://fcdkvfeoxidxlwryjnaz.supabase.co';
@@ -24,7 +24,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // Chart colours, taken from the Orbit design system.
 const COLORS = { accent: '#36C9DF', titanium: '#BFC9D4', muted: '#8295A6', line: '#253342',
-  success: '#35C48D', warning: '#E5A94B', errorSoft: 'rgba(228,109,117,0.35)' };
+  success: '#35C48D', warning: '#E5A94B', errorSoft: 'rgba(228,109,117,0.35)',
+  period: 'rgba(201,139,185,0.18)' }; // soft mauve, kept apart from the red/amber status colours
 
 // Allowed ranges. The database enforces the same limits, so these give friendlier messages first.
 const LIMITS = {
@@ -172,6 +173,9 @@ function fillRoc(box, title, point, small) {
   box.appendChild(wrap);
   return { pct: pct, status: status };
 }
+
+// Period tracking is only shown when the profile sex is female.
+function isFemale() { return !!state.profile && state.profile.sex === 'female'; }
 
 function series() { return state.profile ? Calc.buildSeries(state.logs, state.profile.trend_window_days) : []; }
 function todayStr() { return Calc.toDateStr(new Date()); }
@@ -361,6 +365,8 @@ function renderToday() {
   $('f-weight').value = v(l.weight_kg); $('f-steps').value = fmtInt(l.steps);
   $('f-calories').value = fmtInt(l.calories); $('f-protein').value = fmtInt(l.protein_g);
   $('f-workout').checked = !!l.did_workout;
+  $('periodRow').classList.toggle('hidden', !isFemale());
+  $('f-period').checked = isFemale() && !!l.menstruating;
   $('f-activities').value = v(l.activities);
   $('f-sleep').value = v(l.sleep_quality); $('f-stress').value = v(l.stress_level);
   $('f-fatigue').value = v(l.fatigue_level); $('f-hunger').value = v(l.hunger_level);
@@ -378,6 +384,7 @@ async function saveDay() {
       calories: readNumber('f-calories', 'Calories', LIMITS.calories, { whole: true }),
       protein_g: readNumber('f-protein', 'Protein', LIMITS.protein, { whole: true }),
       did_workout: $('f-workout').checked,
+      menstruating: isFemale() && $('f-period').checked,
       activities: textOrNull($('f-activities').value),
       sleep_quality: readScale('f-sleep'), stress_level: readScale('f-stress'),
       fatigue_level: readScale('f-fatigue'), hunger_level: readScale('f-hunger'),
@@ -442,12 +449,18 @@ function renderWeek() {
       boxes.appendChild(b);
     });
 
+  $('periodKey').classList.toggle('hidden', !isFemale());
   const body = $('weekRows'); body.innerHTML = '';
   sum.days.forEach(function (d) {
     const l = d.log || {};
     const tr = document.createElement('tr');
     [nice(d.date, true), l.weight_kg != null ? fmt(Number(l.weight_kg), 1) : '-', fmt(l.calories), fmt(l.protein_g), fmt(l.steps)]
       .forEach(function (c) { tr.appendChild(el('td', c)); });
+    if (isFemale() && l.menstruating) { // small mauve dot next to the date on period days
+      const dot = el('span', null, 'pdot');
+      dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', 'Period day'); dot.title = 'Period day';
+      tr.firstChild.appendChild(dot);
+    }
     const w = el('td');
     if (l.did_workout) w.appendChild(checkIcon()); // green tick if done, blank if not
     tr.appendChild(w);
@@ -544,6 +557,7 @@ function renderDashboard() {
     return;
   }
   tiles.classList.remove('hidden'); $('chartCard').classList.remove('hidden');
+  $('periodChip').classList.toggle('hidden', !isFemale());
   renderSummary(s);
 
   const last = s[s.length - 1];
@@ -579,7 +593,7 @@ function drawChart(s) {
   }
   const range = Number($('range').value);
   const pts = range ? s.slice(-range) : s;
-  const on = function (k) { return $('ov-' + k).checked; };
+  const on = function (k) { return $('ov-' + k).checked && (k !== 'period' || isFemale()); };
   // Cyan = main series (trend), titanium = secondary (actual weigh-ins).
   const datasets = [
     { label: 'Weight (actual)', data: pts.map(function (p) { return p.weight; }), showLine: false, pointRadius: 3, borderColor: COLORS.titanium, backgroundColor: COLORS.titanium, yAxisID: 'y' },
@@ -591,7 +605,12 @@ function drawChart(s) {
   if (on('calories')) datasets.push(overlay('Calories', 'calories', COLORS.warning, 'yCal', [4, 3]));
   if (on('protein')) datasets.push(overlay('Protein (g)', 'protein', COLORS.success, 'yPro', [2, 3]));
   if (on('steps')) datasets.push(overlay('Steps', 'steps', COLORS.muted, 'ySteps', [8, 4]));
-  if (on('workouts')) datasets.push({ type: 'bar', label: 'Workout', data: pts.map(function (p) { return p.did_workout ? 1 : null; }), backgroundColor: COLORS.errorSoft, yAxisID: 'yWork' });
+  // Workouts: short cyan markers along the bottom of the chart.
+  if (on('workouts')) datasets.push({ type: 'bar', label: 'Workout', data: pts.map(function (p) { return p.did_workout ? 1 : null; }),
+    backgroundColor: COLORS.accent, borderRadius: 3, barPercentage: 0.5, grouped: false, yAxisID: 'yWork', order: 5 });
+  // Period: full-height light bands behind everything; back-to-back days join into one block.
+  if (on('period')) datasets.push({ type: 'bar', label: 'Period', data: pts.map(function (p) { return p.menstruating ? 1 : null; }),
+    backgroundColor: COLORS.period, barPercentage: 1, categoryPercentage: 1, grouped: false, yAxisID: 'yPeriod', order: 10 });
 
   const hidden = function (extra) { return Object.assign({ display: false, position: 'right', grid: { drawOnChartArea: false } }, extra || {}); };
   if (state.chart) state.chart.destroy();
@@ -602,16 +621,22 @@ function drawChart(s) {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { boxWidth: 12, boxHeight: 12 } },
-        tooltip: { callbacks: { title: function (items) { const d = items[0].label; return d + ' (' + dayName(d) + ')'; } } }
+        tooltip: { callbacks: {
+          title: function (items) { const d = items[0].label; return d + ' (' + dayName(d) + ')'; },
+          label: function (c) { // yes/no overlays read as words rather than "1"
+            if (c.dataset.label === 'Workout') return 'Workout done';
+            if (c.dataset.label === 'Period') return 'Period day';
+            return c.dataset.label + ': ' + c.formattedValue;
+          } } }
       },
       scales: {
         x: { ticks: { maxTicksLimit: 6, callback: function (value) { return shortDate(this.getLabelForValue(value)); } } },
         y: { title: { display: true, text: 'kg' } },
-        yCal: hidden(), yPro: hidden(), ySteps: hidden(), yWork: hidden({ min: 0, max: 4 })
+        yCal: hidden(), yPro: hidden(), ySteps: hidden(), yWork: hidden({ min: 0, max: 10 }), yPeriod: hidden({ min: 0, max: 1 })
       }
     }
   });
-  say('dashMsg', datasets.length > 2 ? 'Calories, protein, steps and workouts are drawn on their own hidden scales; tap a point to see the real values.' : '');
+  say('dashMsg', datasets.length > 2 ? 'Calories, protein, steps, workouts and period days are drawn on their own hidden scales; tap a point to see the real values.' : '');
 }
 
 // ---------- start ----------
@@ -637,7 +662,7 @@ function wire() {
   $('weekNext').onclick = function () { moveWeek(1); };
   $('saveTargets').onclick = saveTargets;
   $('range').onchange = renderDashboard;
-  ['calories', 'protein', 'steps', 'workouts'].forEach(function (k) { $('ov-' + k).onchange = renderDashboard; });
+  ['calories', 'protein', 'steps', 'workouts', 'period'].forEach(function (k) { $('ov-' + k).onchange = renderDashboard; });
 
   // Note: do not call other Supabase functions directly inside this callback; defer with setTimeout.
   db.auth.onAuthStateChange(function (_event, session) { setTimeout(function () { onSession(session); }, 0); });

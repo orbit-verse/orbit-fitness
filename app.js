@@ -2,7 +2,7 @@
 'use strict';
 
 // Shown at the bottom of the app so you can tell which version is live.
-const APP_VERSION = 'v2026-11-18a';
+const APP_VERSION = 'v2026-11-27a';
 
 // ====== SETTINGS: paste your values from Supabase > Project Settings > API ======
 const SUPABASE_URL = 'https://fcdkvfeoxidxlwryjnaz.supabase.co';
@@ -17,10 +17,15 @@ const $ = function (id) { return document.getElementById(id); };
 
 const state = {
   user: null, username: '', profile: null, logs: [], targets: [],
-  date: null, weekStart: null, tab: 'today', chart: null
+  date: null, weekStart: null, tab: 'today', chart: null,
+  snap: null, dirty: false // Today form: values as last loaded/saved, and whether anything has changed since
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Every input on the Today form. Used to spot unsaved changes.
+const TODAY_FIELDS = ['f-weight', 'f-steps', 'f-calories', 'f-protein', 'f-workout', 'f-period', 'f-activities',
+  'f-sleep', 'f-stress', 'f-fatigue', 'f-hunger', 'f-wins', 'f-tomorrow'];
 
 // Chart colours, taken from the Orbit design system.
 const COLORS = { accent: '#36C9DF', titanium: '#BFC9D4', muted: '#8295A6', line: '#253342',
@@ -196,6 +201,7 @@ function showTab(name) {
   if (!state.profile && name !== 'profile') name = 'profile'; // must finish profile first
   state.tab = name;
   ['today', 'week', 'dashboard', 'profile'].forEach(function (t) { $('tab-' + t).classList.toggle('hidden', t !== name); });
+  $('datebar').classList.toggle('hidden', name !== 'today'); // the date row is pinned under the header on Today only
   document.querySelectorAll('#tabs button').forEach(function (b) {
     const on = b.dataset.tab === name;
     b.classList.toggle('active', on);
@@ -203,7 +209,7 @@ function showTab(name) {
     b.disabled = !state.profile && b.dataset.tab !== 'profile';
   });
   window.scrollTo(0, 0);
-  if (name === 'today') renderToday();
+  if (name === 'today' && !state.dirty) renderToday(); // unsaved edits are kept while you look at other tabs
   if (name === 'week') renderWeek();
   if (name === 'dashboard') renderDashboard();
   if (name === 'profile') renderProfile();
@@ -226,6 +232,8 @@ async function onSession(session) {
   if (!session) {
     state.user = null; state.username = ''; state.profile = null; state.logs = []; state.targets = [];
     if (state.chart) { state.chart.destroy(); state.chart = null; }
+    state.snap = null; setDirtyUi(false);
+    openPw(false); say('pwDone', '');
     showScreen('login'); say('loginMsg', '');
     return;
   }
@@ -246,6 +254,7 @@ async function onSession(session) {
   greet();
   state.date = todayStr();
   state.weekStart = Calc.weekStart(state.date);
+  noteLoginDay();
   showTab(state.profile ? 'today' : 'profile');
 }
 
@@ -362,7 +371,8 @@ function renderToday() {
   $('dayNext').disabled = state.date >= today;
   const l = state.logs.find(function (x) { return x.date === state.date; }) || {};
   const v = function (x) { return x == null ? '' : x; };
-  $('f-weight').value = v(l.weight_kg); $('f-steps').value = fmtInt(l.steps);
+  $('f-weight').value = l.weight_kg != null && Number.isInteger(Number(l.weight_kg)) ? Number(l.weight_kg).toFixed(1) : v(l.weight_kg); // 80 shows as 80.0
+  $('f-steps').value = fmtInt(l.steps);
   $('f-calories').value = fmtInt(l.calories); $('f-protein').value = fmtInt(l.protein_g);
   $('f-workout').checked = !!l.did_workout;
   $('periodRow').classList.toggle('hidden', !isFemale());
@@ -372,6 +382,46 @@ function renderToday() {
   $('f-fatigue').value = v(l.fatigue_level); $('f-hunger').value = v(l.hunger_level);
   $('f-wins').value = v(l.wins); $('f-tomorrow').value = v(l.tomorrow_plan);
   say('todayMsg', l.date ? 'Editing the entry saved for this day.' : '');
+  takeSnapshot(); // this is now the "saved" state; any edit from here shows the unsaved-changes bar
+}
+
+// ---------- unsaved changes ----------
+// A field's value in a form that ignores formatting (commas, 80 vs 80.0), so only real edits count.
+function fieldValue(id) {
+  const input = $(id);
+  if (input.type === 'checkbox') return input.checked ? '1' : '';
+  let val = String(input.value).trim();
+  if (input.classList.contains('int')) val = val.replace(/,/g, '');
+  if (id === 'f-weight' && val !== '' && Number.isFinite(Number(val))) val = String(Number(val));
+  return val;
+}
+function takeSnapshot() {
+  state.snap = {};
+  TODAY_FIELDS.forEach(function (id) { state.snap[id] = fieldValue(id); });
+  updateDirty();
+}
+// Outline each changed field in amber and show or hide the bar.
+function updateDirty() {
+  let any = false;
+  TODAY_FIELDS.forEach(function (id) {
+    const input = $(id);
+    const changed = !!state.snap && fieldValue(id) !== state.snap[id];
+    (input.type === 'checkbox' ? input.closest('label') : input).classList.toggle('dirty', changed);
+    if (changed) any = true;
+  });
+  setDirtyUi(any);
+}
+function setDirtyUi(on) {
+  state.dirty = on;
+  if (!on) document.querySelectorAll('#tab-today .dirty').forEach(function (x) { x.classList.remove('dirty'); });
+  if (on && state.date) $('dirtyDate').textContent = dayName(state.date, true) + ', ' + shortDate(state.date);
+  $('dirtyBar').classList.toggle('hidden', !on);
+  document.body.classList.toggle('has-dirty', on);
+}
+// Before leaving a day with unsaved edits, ask. Returns true when it is fine to go on.
+function okToLeave() {
+  if (!state.dirty) return true;
+  return window.confirm('You have unsaved changes for ' + nice(state.date) + '. Discard them?');
 }
 
 async function saveDay() {
@@ -390,18 +440,27 @@ async function saveDay() {
       fatigue_level: readScale('f-fatigue'), hunger_level: readScale('f-hunger'),
       wins: textOrNull($('f-wins').value), tomorrow_plan: textOrNull($('f-tomorrow').value)
     };
-  } catch (e) { say('todayMsg', e.message, 'err'); return; }
+  } catch (e) {
+    if (state.tab !== 'today') showTab('today'); // show the field with the problem
+    say('todayMsg', e.message, 'err'); return;
+  }
+  $('dirtySave').disabled = true; $('dirtySave').textContent = 'Saving...';
   try {
     const saved = await must(db.from('daily_logs').upsert(row, { onConflict: 'user_id,date' }).select().single());
     state.logs = state.logs.filter(function (x) { return x.date !== saved.date; }).concat(saved)
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    renderToday(); // reloads the form from what was saved (80 becomes 80.0) and hides the bar
     say('todayMsg', 'Saved for ' + nice(state.date) + '.', 'ok');
-  } catch (e) { say('todayMsg', 'Could not save: ' + e.message, 'err'); }
+  } catch (e) {
+    if (state.tab !== 'today') showTab('today');
+    say('todayMsg', 'Could not save: ' + e.message, 'err');
+  } finally { $('dirtySave').disabled = false; $('dirtySave').textContent = 'Save'; }
 }
 
 function moveDay(n) {
   const next = Calc.addDays(state.date, n);
   if (next > todayStr()) return;
+  if (!okToLeave()) return;
   state.date = next; renderToday();
 }
 
@@ -489,18 +548,56 @@ async function saveTargets() {
   } catch (e) { say('targetMsg', 'Could not save: ' + e.message, 'err'); }
 }
 
+// ---------- CHANGE PASSWORD ----------
+// Hidden behind a button on the Profile tab. Forgotten passwords are reset by the admin
+// in Supabase (Authentication > Users), because logins use made-up emails with no inbox.
+function openPw(open) {
+  ['pw-current', 'pw-new', 'pw-confirm'].forEach(function (id) { $(id).value = ''; });
+  say('pwMsg', ''); if (open) say('pwDone', '');
+  $('pwCard').classList.toggle('hidden', !open);
+  $('pwOpen').classList.toggle('hidden', open);
+  if (open) $('pw-current').focus();
+}
+
+async function changePassword() {
+  const cur = $('pw-current').value, next = $('pw-new').value, again = $('pw-confirm').value;
+  if (!cur || !next || !again) { say('pwMsg', 'Fill in all three fields.', 'err'); return; }
+  if (next.length < 8) { say('pwMsg', 'The new password needs at least 8 characters.', 'err'); return; }
+  if (next !== again) { say('pwMsg', 'The new passwords do not match.', 'err'); return; }
+  if (next === cur) { say('pwMsg', 'The new password is the same as the current one.', 'err'); return; }
+  $('pwSave').disabled = true; say('pwMsg', 'Checking...');
+  try {
+    // Confirm the current password first, so an unlocked phone can't be used to change it.
+    const check = await db.auth.signInWithPassword({ email: state.user.email, password: cur });
+    if (check.error) { say('pwMsg', 'Current password is wrong.', 'err'); return; }
+    const r = await db.auth.updateUser({ password: next });
+    if (r.error) { say('pwMsg', 'Could not change it: ' + r.error.message, 'err'); return; }
+    openPw(false);
+    say('pwDone', 'Password updated.', 'ok');
+  } catch (e) { say('pwMsg', 'Could not change it: ' + e.message, 'err'); }
+  finally { $('pwSave').disabled = false; }
+}
+
 // ---------- DASHBOARD ----------
-// The summary of last week appears on the first day you open the dashboard in a new week,
-// and is gone the next day. The "first day" is remembered on this device only.
+// The summary of last week shows on the first day you open the app in a new week
+// (Monday, or Tuesday if that is your first login) and stays up until the end of that day.
+// The "first day" is remembered on this device only.
+function summaryKey() { return 'orbit.summary.' + state.user.id; }
+
+function noteLoginDay() { // called once each time the app loads after login
+  const wk = Calc.weekStart(todayStr());
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(summaryKey())); } catch (e) { s = null; }
+  if (!s || s.week !== wk) {
+    try { localStorage.setItem(summaryKey(), JSON.stringify({ week: wk, shownOn: todayStr() })); } catch (e) { /* private mode */ }
+  }
+}
+
 function summaryDue() {
   const wk = Calc.weekStart(todayStr());
-  const key = 'orbit.summary.' + state.user.id;
   let s = null;
-  try { s = JSON.parse(localStorage.getItem(key)); } catch (e) { s = null; }
-  if (!s || s.week !== wk) {
-    s = { week: wk, shownOn: todayStr() };
-    try { localStorage.setItem(key, JSON.stringify(s)); } catch (e) { /* private mode: still show it today */ }
-  }
+  try { s = JSON.parse(localStorage.getItem(summaryKey())); } catch (e) { s = null; }
+  if (!s || s.week !== wk) return true; // storage unavailable: show it rather than lose it
   return s.shownOn === todayStr();
 }
 
@@ -647,16 +744,32 @@ function wire() {
   document.querySelectorAll('input.int').forEach(wireInt);
   $('loginBtn').onclick = doLogin;
   $('password').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
-  $('logoutBtn').onclick = function () { db.auth.signOut(); };
+  $('logoutBtn').onclick = function () { if (okToLeave()) db.auth.signOut(); };
   document.querySelectorAll('#tabs button').forEach(function (b) { b.onclick = function () { showTab(b.dataset.tab); }; });
   $('saveProfile').onclick = saveProfile;
   $('useSuggested').onclick = useSuggested;
-  $('saveDay').onclick = saveDay;
+  $('pwOpen').onclick = function () { openPw(true); };
+  $('pwCancel').onclick = function () { openPw(false); };
+  $('pwSave').onclick = changePassword;
+
+  // Today: any edit shows the unsaved-changes bar; Save and Discard live on the bar.
+  TODAY_FIELDS.forEach(function (id) {
+    $(id).addEventListener('input', updateDirty);
+    $(id).addEventListener('change', updateDirty);
+  });
+  $('dirtySave').onclick = saveDay;
+  $('dirtyDiscard').onclick = function () { renderToday(); };
+  window.addEventListener('beforeunload', function (e) { // closing or reloading the page with unsaved edits
+    if (state.dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   $('dayPrev').onclick = function () { moveDay(-1); };
   $('dayNext').onclick = function () { moveDay(1); };
   $('logDate').onchange = function () {
     const v = $('logDate').value;
-    if (v) { state.date = v > todayStr() ? todayStr() : v; renderToday(); }
+    if (!v) return;
+    if (!okToLeave()) { $('logDate').value = state.date; return; }
+    state.date = v > todayStr() ? todayStr() : v; renderToday();
   };
   $('weekPrev').onclick = function () { moveWeek(-1); };
   $('weekNext').onclick = function () { moveWeek(1); };

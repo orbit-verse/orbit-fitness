@@ -240,7 +240,7 @@
       <div class="card">
         <p id="todayMsg" class="msg"></p>
         <div class="row">
-          <label class="field" for="f-weight">Weight (kg)<input id="f-weight" type="number" step="0.01" inputmode="decimal" /></label>
+          <label class="field" for="f-weight"><span>Weight (<span class="wunit">kg</span>)</span><input id="f-weight" type="number" step="0.01" inputmode="decimal" /></label>
           <label class="field" for="f-steps">Steps<input id="f-steps" class="int" type="text" inputmode="numeric" autocomplete="off" /></label>
         </div>
         <div class="row">
@@ -298,7 +298,7 @@
         </div>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Day</th><th>kg</th><th>kcal</th><th>Protein</th><th>Steps</th><th>Workout</th></tr></thead>
+            <thead><tr><th>Day</th><th class="wunit">kg</th><th>kcal</th><th>Protein</th><th>Steps</th><th>Workout</th></tr></thead>
             <tbody id="weekRows"></tbody>
           </table>
           <p id="periodKey" class="periodkey hidden"><span class="pdot" style="margin:0 6px 0 0"></span>Period day</p>
@@ -339,9 +339,17 @@
           <label class="field" for="p-sex">Sex<select id="p-sex"><option value="">Select</option><option value="male">Male</option><option value="female">Female</option></select></label>
           <label class="field" for="p-age">Age<input id="p-age" type="number" inputmode="numeric" /></label>
         </div>
-        <div class="row">
+        <label class="field" for="p-units">Units<select id="p-units">
+          <option value="metric">Metric (kg, cm)</option><option value="imperial">Imperial (lb, ft and in)</option></select></label>
+        <div id="hMetric" class="row">
           <label class="field" for="p-height">Height (cm)<input id="p-height" type="number" step="0.1" inputmode="decimal" /></label>
-          <label class="field" for="p-start">Starting weight (kg)<input id="p-start" type="number" step="0.1" inputmode="decimal" /></label>
+        </div>
+        <div id="hImperial" class="row hidden">
+          <label class="field" for="p-ft">Height (ft)<input id="p-ft" type="number" step="1" min="3" max="8" inputmode="numeric" /></label>
+          <label class="field" for="p-in">Height (in)<input id="p-in" type="number" step="0.1" min="0" max="11.9" inputmode="decimal" /></label>
+        </div>
+        <div class="row">
+          <label class="field" for="p-start"><span>Starting weight (<span id="pStartUnit">kg</span>)</span><input id="p-start" type="number" step="0.1" inputmode="decimal" /></label>
         </div>
         <div class="row">
           <label class="field" for="p-goal">Goal<select id="p-goal"><option value="cut">Cut</option><option value="maintain">Maintain</option><option value="bulk">Bulk</option></select></label>

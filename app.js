@@ -2,7 +2,7 @@
 'use strict';
 
 // Shown at the bottom of the app so you can tell which version is live.
-const APP_VERSION = 'v2026-11-27a';
+const APP_VERSION = 'v2026-11-27b';
 
 // ====== SETTINGS: paste your values from Supabase > Project Settings > API ======
 const SUPABASE_URL = 'https://fcdkvfeoxidxlwryjnaz.supabase.co';
@@ -112,6 +112,42 @@ function readNumber(id, label, limits, opts) {
 }
 function readScale(id) { const v = $(id).value; return v === '' ? null : Number(v); }
 
+// ---------- units ----------
+// The database always stores kg and cm. Users who pick Imperial on their Profile see and type lb and ft/in;
+// the app converts on the way in and on the way out.
+const KG_PER_LB = 0.45359237;
+const CM_PER_IN = 2.54;
+const LB_LIMITS = [44, 880];        // same range as 20-400 kg
+const FT_LIMITS = [3, 8], IN_LIMITS = [0, 11.9];
+function isImperial(units) { return (units || (state.profile && state.profile.units)) === 'imperial'; }
+function wUnit(units) { return isImperial(units) ? 'lb' : 'kg'; }
+function kgToShow(kg, units) { return kg == null ? null : (isImperial(units) ? Number(kg) / KG_PER_LB : Number(kg)); }
+function showToKg(v, units) { return v == null ? null : (isImperial(units) ? v * KG_PER_LB : v); }
+function wdp(kgDp) { return isImperial() ? 1 : kgDp; } // lb is shown to 1 decimal so 126.8 stays 126.8
+function fmtW(kg, kgDp) { return kg == null ? '-' : fmt(kgToShow(kg), wdp(kgDp)) + ' ' + wUnit(); }
+function signedW(kg, kgDp) { return kg == null ? '-' : signed(kgToShow(kg), wdp(kgDp)) + ' ' + wUnit(); }
+// Weight for an input box: lb to 1 decimal; kg as stored (whole numbers get .0).
+function weightForInput(kg, units) {
+  if (kg == null || kg === '') return '';
+  if (isImperial(units)) return kgToShow(kg, units).toFixed(1);
+  return Number.isInteger(Number(kg)) ? Number(kg).toFixed(1) : String(Number(kg));
+}
+// Read a weight box in the given units and return kg.
+function readWeight(id, label, units, kgDp) {
+  const imp = isImperial(units);
+  const n = readNumber(id, label + (imp ? ' (lb)' : ''), imp ? LB_LIMITS : LIMITS.weight, { dp: imp ? 2 : kgDp });
+  return n == null ? null : Number(showToKg(n, units).toFixed(2));
+}
+function cmToFtIn(cm) {
+  let inches = Math.round((Number(cm) / CM_PER_IN) * 10) / 10;
+  let ft = Math.floor(inches / 12);
+  let rest = Math.round((inches - ft * 12) * 10) / 10;
+  if (rest >= 12) { ft += 1; rest = 0; }
+  return { ft: ft, inch: rest };
+}
+// Show the unit names on labels and headers outside the Profile form.
+function showUnitLabels() { document.querySelectorAll('.wunit').forEach(function (x) { x.textContent = wUnit(); }); }
+
 // Whole-number boxes (steps, calories, protein...): letters are ignored and commas are added as you type.
 function wireInt(input) {
   input.addEventListener('input', function () {
@@ -169,7 +205,7 @@ function fillRoc(box, title, point, small) {
     big.appendChild(el('span', signed(pct, 2) + '%', 'v'));
     big.appendChild(el('span', 'per week', 'u'));
     wrap.appendChild(big);
-    wrap.appendChild(el('span', signed(point.weeklyChange, 2) + ' kg per week', 'kg'));
+    wrap.appendChild(el('span', signedW(point.weeklyChange, 2) + ' per week', 'kg'));
   }
   const st = el('div', null, 'status');
   if (pct != null) st.appendChild(el('span', status.label, 'chip-status' + levelClass(status.level)));
@@ -252,6 +288,7 @@ async function onSession(session) {
     showTab('profile'); say('profileMsg', 'Could not load your data: ' + e.message, 'err'); return;
   }
   greet();
+  showUnitLabels();
   state.date = todayStr();
   state.weekStart = Calc.weekStart(state.date);
   noteLoginDay();
@@ -268,17 +305,52 @@ function fillProfileLists() {
   for (let i = 0; i <= 7; i++) l.appendChild(new Option(String(i), String(i)));
 }
 
+// Height and starting weight on the Profile form, shown in the form's chosen units.
+function setProfileMeasures(heightCm, startKg, units) {
+  state.formUnits = units;
+  const imp = isImperial(units);
+  $('hMetric').classList.toggle('hidden', imp);
+  $('hImperial').classList.toggle('hidden', !imp);
+  $('pStartUnit').textContent = wUnit(units);
+  $('p-height').value = heightCm == null ? '' : Number(heightCm);
+  if (heightCm == null) { $('p-ft').value = ''; $('p-in').value = ''; }
+  else { const fi = cmToFtIn(heightCm); $('p-ft').value = fi.ft; $('p-in').value = fi.inch; }
+  $('p-start').value = weightForInput(startKg, units);
+}
+// Read height from whichever boxes are showing, in cm (1 decimal). Blank gives null.
+function readHeightCm(units) {
+  if (!isImperial(units)) return readNumber('p-height', 'Height', LIMITS.height, { dp: 1 });
+  const ft = readNumber('p-ft', 'Height (feet)', FT_LIMITS, { whole: true });
+  const inch = readNumber('p-in', 'Height (inches)', IN_LIMITS, { dp: 1 });
+  if (ft == null && inch == null) return null;
+  const cm = Number((((ft || 0) * 12 + (inch || 0)) * CM_PER_IN).toFixed(1));
+  if (cm < LIMITS.height[0] || cm > LIMITS.height[1]) throw new Error('Height must be between 3 ft 4 in and 8 ft 2 in.');
+  return cm;
+}
+// Switching Metric/Imperial on the form converts whatever is typed so far.
+function onUnitsChange() {
+  const from = state.formUnits, to = $('p-units').value;
+  let h = null, w = null;
+  try { h = readHeightCm(from); } catch (e) { h = null; }
+  try { w = readWeight('p-start', 'Starting weight', from, 1); } catch (e) { w = null; }
+  setProfileMeasures(h, w, to);
+}
+
 function renderProfile() {
   const p = state.profile;
   $('profileIntro').classList.toggle('hidden', !!p);
+  const units = p && p.units ? p.units : 'metric';
+  $('p-units').value = units;
   if (p) {
     const v = function (x) { return x == null ? '' : x; };
     $('p-name').value = p.first_name; $('p-sex').value = p.sex; $('p-age').value = p.age;
-    $('p-height').value = p.height_cm; $('p-goal').value = p.goal; $('p-window').value = p.trend_window_days;
+    $('p-goal').value = p.goal; $('p-window').value = p.trend_window_days;
     $('p-activity').value = v(p.activity_level); $('p-lifting').value = v(p.lifting_sessions);
     // No starting weight saved yet? Offer the first weight ever logged as a starting point.
     const first = state.logs.filter(function (l) { return l.weight_kg != null; })[0];
-    $('p-start').value = p.starting_weight_kg != null ? p.starting_weight_kg : (first ? first.weight_kg : '');
+    setProfileMeasures(p.height_cm, p.starting_weight_kg != null ? p.starting_weight_kg : (first ? first.weight_kg : null), units);
+  } else {
+    setProfileMeasures(null, null, units);
   }
   say('profileMsg', p && (p.starting_weight_kg == null || !p.activity_level || p.lifting_sessions == null)
     ? 'New: add your starting weight, lifting sessions and activity level, then save to see suggested targets.' : '');
@@ -313,13 +385,15 @@ function renderSuggestion() {
 
 async function saveProfile() {
   let row;
+  const units = $('p-units').value;
   try {
     row = {
       user_id: state.user.id,
       first_name: $('p-name').value.trim(), sex: $('p-sex').value,
       age: readNumber('p-age', 'Age', LIMITS.age, { whole: true }),
-      height_cm: readNumber('p-height', 'Height', LIMITS.height, { dp: 1 }),
-      starting_weight_kg: readNumber('p-start', 'Starting weight', LIMITS.weight, { dp: 1 }),
+      height_cm: readHeightCm(units),
+      starting_weight_kg: readWeight('p-start', 'Starting weight', units, 1),
+      units: units,
       goal: $('p-goal').value,
       activity_level: $('p-activity').value || null,
       lifting_sessions: $('p-lifting').value === '' ? null : Number($('p-lifting').value),
@@ -332,8 +406,19 @@ async function saveProfile() {
   }
   try {
     const wasNew = !state.profile;
+    const oldUnits = state.profile ? (state.profile.units || 'metric') : 'metric';
     state.profile = await must(db.from('profiles').upsert(row, { onConflict: 'user_id' }).select().single());
     greet();
+    showUnitLabels();
+    if (oldUnits !== units) { // units changed: redraw Today in the new units, keeping any unsaved edits
+      if (state.dirty) {
+        const typed = Number(String($('f-weight').value).trim());
+        if ($('f-weight').value !== '' && Number.isFinite(typed)) $('f-weight').value = weightForInput(showToKg(typed, oldUnits), units);
+        const saved = state.snap['f-weight'];
+        if (saved !== '') state.snap['f-weight'] = String(Number(weightForInput(showToKg(Number(saved), oldUnits), units)));
+        updateDirty();
+      } else if (state.date) renderToday();
+    }
     if (wasNew) showTab('profile'); // unlocks the other tabs
     else { $('profileIntro').classList.add('hidden'); renderSuggestion(); }
     say('profileMsg', 'Saved. Your suggested targets are below.', 'ok');
@@ -371,7 +456,7 @@ function renderToday() {
   $('dayNext').disabled = state.date >= today;
   const l = state.logs.find(function (x) { return x.date === state.date; }) || {};
   const v = function (x) { return x == null ? '' : x; };
-  $('f-weight').value = l.weight_kg != null && Number.isInteger(Number(l.weight_kg)) ? Number(l.weight_kg).toFixed(1) : v(l.weight_kg); // 80 shows as 80.0
+  $('f-weight').value = weightForInput(l.weight_kg); // 80 shows as 80.0; lb users see pounds to 1 decimal
   $('f-steps').value = fmtInt(l.steps);
   $('f-calories').value = fmtInt(l.calories); $('f-protein').value = fmtInt(l.protein_g);
   $('f-workout').checked = !!l.did_workout;
@@ -429,7 +514,7 @@ async function saveDay() {
   try {
     row = {
       user_id: state.user.id, date: state.date,
-      weight_kg: readNumber('f-weight', 'Weight', LIMITS.weight, { dp: 2 }),
+      weight_kg: readWeight('f-weight', 'Weight', null, 2), // typed in kg or lb, stored in kg
       steps: readNumber('f-steps', 'Steps', LIMITS.steps, { whole: true }),
       calories: readNumber('f-calories', 'Calories', LIMITS.calories, { whole: true }),
       protein_g: readNumber('f-protein', 'Protein', LIMITS.protein, { whole: true }),
@@ -513,7 +598,7 @@ function renderWeek() {
   sum.days.forEach(function (d) {
     const l = d.log || {};
     const tr = document.createElement('tr');
-    [nice(d.date, true), l.weight_kg != null ? fmt(Number(l.weight_kg), 1) : '-', fmt(l.calories), fmt(l.protein_g), fmt(l.steps)]
+    [nice(d.date, true), l.weight_kg != null ? fmt(kgToShow(l.weight_kg), 1) : '-', fmt(l.calories), fmt(l.protein_g), fmt(l.steps)]
       .forEach(function (c) { tr.appendChild(el('td', c)); });
     if (isFemale() && l.menstruating) { // small mauve dot next to the date on period days
       const dot = el('span', null, 'pdot');
@@ -667,14 +752,14 @@ function renderDashboard() {
   const hero = $('dashRoc');
   fillRoc(hero, 'Rate of change (7 days)', last, false);
   const split = el('div', null, 'split');
-  const a = el('div', null, 'metric'); a.appendChild(el('span', 'Trend weight', 'label')); a.appendChild(el('span', fmt(last.trend, 2) + ' kg', 'v'));
+  const a = el('div', null, 'metric'); a.appendChild(el('span', 'Trend weight', 'label')); a.appendChild(el('span', fmtW(last.trend, 2), 'v'));
   const b = el('div', null, 'metric right'); b.appendChild(el('span', 'Latest weigh-in', 'label'));
-  b.appendChild(el('span', s.filter(function (p) { return p.weight != null; }).pop().weight + ' kg', 'sub'));
+  b.appendChild(el('span', fmtW(s.filter(function (p) { return p.weight != null; }).pop().weight, 2), 'sub'));
   split.appendChild(a); split.appendChild(b);
   hero.appendChild(split);
 
-  tiles.appendChild(metric('Change (14 days)', d14 == null ? 'Not enough data' : signed(d14, 2) + ' kg', d14 == null ? '' : 'based on trend weight'));
-  tiles.appendChild(metric('Total change', signed(last.trend - s[0].trend, 2) + ' kg', 'since ' + shortDate(s[0].date)));
+  tiles.appendChild(metric('Change (14 days)', d14 == null ? 'Not enough data' : signedW(d14, 2), d14 == null ? '' : 'based on trend weight'));
+  tiles.appendChild(metric('Total change', signedW(last.trend - s[0].trend, 2), 'since ' + shortDate(s[0].date)));
   tiles.appendChild(metric('Avg calories (7 days)', fmt(avgOf('calories'))));
   tiles.appendChild(metric('Avg steps (7 days)', fmt(avgOf('steps'))));
   tiles.appendChild(metric('Est. maintenance', last.tdee == null ? 'Not enough data' : fmt(last.tdee) + ' kcal',
@@ -690,11 +775,12 @@ function drawChart(s) {
   }
   const range = Number($('range').value);
   const pts = range ? s.slice(-range) : s;
+  const chartW = function (kg) { return kg == null ? null : Number(kgToShow(kg).toFixed(2)); }; // weights in the user's unit
   const on = function (k) { return $('ov-' + k).checked && (k !== 'period' || isFemale()); };
   // Cyan = main series (trend), titanium = secondary (actual weigh-ins).
   const datasets = [
-    { label: 'Weight (actual)', data: pts.map(function (p) { return p.weight; }), showLine: false, pointRadius: 3, borderColor: COLORS.titanium, backgroundColor: COLORS.titanium, yAxisID: 'y' },
-    { label: 'Trend weight', data: pts.map(function (p) { return p.trend; }), borderColor: COLORS.accent, backgroundColor: COLORS.accent, borderWidth: 3, pointRadius: 0, tension: 0.2, yAxisID: 'y' }
+    { label: 'Weight (actual)', data: pts.map(function (p) { return chartW(p.weight); }), showLine: false, pointRadius: 3, borderColor: COLORS.titanium, backgroundColor: COLORS.titanium, yAxisID: 'y' },
+    { label: 'Trend weight', data: pts.map(function (p) { return chartW(p.trend); }), borderColor: COLORS.accent, backgroundColor: COLORS.accent, borderWidth: 3, pointRadius: 0, tension: 0.2, yAxisID: 'y' }
   ];
   const overlay = function (label, key, color, axis, dash) {
     return { label: label, data: pts.map(function (p) { return p[key]; }), borderColor: color, backgroundColor: color, borderWidth: 1.5, borderDash: dash, pointRadius: 1.5, spanGaps: true, yAxisID: axis };
@@ -728,7 +814,7 @@ function drawChart(s) {
       },
       scales: {
         x: { ticks: { maxTicksLimit: 6, callback: function (value) { return shortDate(this.getLabelForValue(value)); } } },
-        y: { title: { display: true, text: 'kg' } },
+        y: { title: { display: true, text: wUnit() } },
         yCal: hidden(), yPro: hidden(), ySteps: hidden(), yWork: hidden({ min: 0, max: 10 }), yPeriod: hidden({ min: 0, max: 1 })
       }
     }
@@ -747,6 +833,7 @@ function wire() {
   $('logoutBtn').onclick = function () { if (okToLeave()) db.auth.signOut(); };
   document.querySelectorAll('#tabs button').forEach(function (b) { b.onclick = function () { showTab(b.dataset.tab); }; });
   $('saveProfile').onclick = saveProfile;
+  $('p-units').onchange = onUnitsChange;
   $('useSuggested').onclick = useSuggested;
   $('pwOpen').onclick = function () { openPw(true); };
   $('pwCancel').onclick = function () { openPw(false); };
